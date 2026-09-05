@@ -417,4 +417,9 @@ input, select, textarea { font: inherit; color: inherit; }
   max-width: 520px;
   margin: 0 auto;
 }
-.fullscreen-form .content { padding-bottom: 40px; }
+.fullscreen-form .content {
+  padding-bottom: 40px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0; /* let this flex item shrink and actually become the scroll container */
+}
