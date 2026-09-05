@@ -25,6 +25,7 @@ export const useStore = create((set, get) => ({
   syncError: null,
   authStatus: 'checking', // 'checking' | 'anon' | 'authed'
   user: null, // { id, email, name, selfPersonId }
+  akashPrank: null, // local-only easter egg override, never persisted - see pullAkashDebtOntoMe()
 
   // ---- auth -----------------------------------------------------------
   async signup(email, password, name) {
@@ -43,7 +44,7 @@ export const useStore = create((set, get) => ({
     } catch {
       // ignore - clearing local state either way
     }
-    set({ ...empty, hydrated: false, authStatus: 'anon', user: null, syncError: null })
+    set({ ...empty, hydrated: false, authStatus: 'anon', user: null, syncError: null, akashPrank: null })
   },
   async loadState() {
     try {
@@ -239,6 +240,21 @@ export const useStore = create((set, get) => ({
     // fabricate entries in groups other people rely on. Export still works
     // as a personal read-only backup.
     return { ok: false, reason: 'Import is unavailable now that Hisheb syncs to your account - add data with the forms instead.' }
+  },
+
+  // ---- just for fun ---------------------------------------------------
+  // Purely a local display trick: nothing here ever reaches the API, and
+  // it evaporates on refresh (it's plain in-memory state, not part of
+  // `empty`'s persisted-slice shape and never written by loadState()).
+  pullAkashDebtOntoMe() {
+    const s = get()
+    const akash = Object.values(s.people).find((p) => !p.me && p.name.trim().toLowerCase() === 'akash')
+    if (!akash) return { ok: false, reason: 'No one named Akash in your groups.' }
+    set({ akashPrank: { targetId: akash.id, bonus: 199900 } }) // ₹1,999 "convenience fee"
+    return { ok: true, name: akash.name }
+  },
+  clearAkashPrank() {
+    set({ akashPrank: null })
   },
 }))
 

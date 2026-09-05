@@ -13,6 +13,9 @@ export default function Account() {
   const exportData = useStore((s) => s.exportData)
   const importData = useStore((s) => s.importData)
   const logout = useStore((s) => s.logout)
+  const akashPrank = useStore((s) => s.akashPrank)
+  const pullAkashDebtOntoMe = useStore((s) => s.pullAkashDebtOntoMe)
+  const clearAkashPrank = useStore((s) => s.clearAkashPrank)
 
   const [name, setName] = useState(myName)
   const fileRef = useRef(null)
@@ -113,6 +116,28 @@ export default function Account() {
           </button>
         </div>
         <input ref={fileRef} type="file" accept="application/json" hidden onChange={doImport} />
+
+        <div className="section-title">Just for fun</div>
+        <div className="card list">
+          <button
+            className="row"
+            onClick={() => {
+              if (akashPrank) {
+                clearAkashPrank()
+                toast('Akash is back on the hook for their own debt')
+              } else {
+                const res = pullAkashDebtOntoMe()
+                toast(res.ok ? `Took on ${res.name}'s debt, plus a ₹1,999 "convenience fee" 😅` : res.reason)
+              }
+            }}
+          >
+            <div className="emoji-badge">😇</div>
+            <div className="grow">
+              <div className="title">{akashPrank ? 'Give Akash their debt back' : "Put all Akash's debt on me"}</div>
+              <div className="sub">Just a local display trick — resets the moment you refresh</div>
+            </div>
+          </button>
+        </div>
 
         <div className="section-title">Session</div>
         <div className="card list">
