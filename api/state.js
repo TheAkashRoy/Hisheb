@@ -36,7 +36,7 @@ async function handler(req, res) {
     groups: Object.fromEntries(myGroups.map((g) => [g._id, toClientGroup(g)])),
     expenses: Object.fromEntries(expenseList.map((e) => [e._id, toClientDoc(e)])),
     settlements: Object.fromEntries(settlementList.map((s) => [s._id, toClientDoc(s)])),
-    settings: user.settings || { currency: 'USD' },
+    settings: user.settings || { currency: 'INR' },
   })
 }
 

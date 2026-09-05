@@ -52,8 +52,3 @@ export const deleteExpense = (id) => request(`/expenses/${id}`, { method: 'DELET
 // ---- settlements -------------------------------------------------------
 export const createSettlement = (payload) => request('/settlements', { method: 'POST', body: JSON.stringify(payload) })
 export const deleteSettlement = (id) => request(`/settlements/${id}`, { method: 'DELETE' })
-
-// ---- settings + account-level actions -------------------------------
-export const patchSettings = (patch) => request('/settings', { method: 'PATCH', body: JSON.stringify(patch) })
-export const resetAccount = () => request('/reset', { method: 'POST' })
-export const loadSampleData = () => request('/sample', { method: 'POST' })

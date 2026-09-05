@@ -23,7 +23,7 @@ export function normaliseExpense(e) {
     groupId: e.groupId || null,
     description: (e.description || '').trim() || 'Expense',
     amount: total,
-    currency: e.currency || 'USD',
+    currency: e.currency || 'INR',
     category: e.category || 'general',
     date: e.date || new Date().toISOString(),
     paidBy,

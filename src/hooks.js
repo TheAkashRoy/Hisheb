@@ -18,7 +18,7 @@ export function useGroupLedger(groupId) {
       .filter((e) => !e.deleted && e.groupId === groupId)
       .sort(bySortedDate)
     const settlements = Object.values(settlementsMap).filter((x) => !x.deleted && x.groupId === groupId)
-    const summary = userSummary(currentUserId, group.memberIds, expenses, settlements)
+    const summary = userSummary(currentUserId, group.memberIds, expenses, settlements, group.simplify)
     return { group, expenses, settlements, ...summary }
   }, [group, expensesMap, settlementsMap, currentUserId, groupId])
 }
@@ -35,7 +35,7 @@ export function useOverall() {
     for (const g of Object.values(groupsMap)) {
       const expenses = Object.values(expensesMap).filter((e) => !e.deleted && e.groupId === g.id)
       const settlements = Object.values(settlementsMap).filter((x) => !x.deleted && x.groupId === g.id)
-      const { balance } = userSummary(currentUserId, g.memberIds, expenses, settlements)
+      const { balance } = userSummary(currentUserId, g.memberIds, expenses, settlements, g.simplify)
       byCurrency[g.currency] = (byCurrency[g.currency] || 0) + balance
     }
     return byCurrency

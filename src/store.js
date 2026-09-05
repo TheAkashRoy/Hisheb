@@ -11,7 +11,7 @@ const empty = {
   groups: {},
   expenses: {},
   settlements: {},
-  settings: { currency: 'USD' },
+  settings: { currency: 'INR' },
 }
 
 function reportSyncError(err) {
@@ -54,7 +54,7 @@ export const useStore = create((set, get) => ({
         groups: data.groups || {},
         expenses: data.expenses || {},
         settlements: data.settlements || {},
-        settings: data.settings || { currency: 'USD' },
+        settings: data.settings || { currency: 'INR' },
         hydrated: true,
         syncError: null,
       })
@@ -107,11 +107,12 @@ export const useStore = create((set, get) => ({
   },
 
   // ---- groups ------------------------------------------------------
-  addGroup({ name, emoji = '👥', currency, memberIds, simplify = true }) {
+  // Currency is always INR - the app doesn't offer a choice (also enforced
+  // server-side in api/groups.js, so this can't be bypassed either).
+  addGroup({ name, emoji = '👥', memberIds, simplify = true }) {
     const id = uid()
     const me = get().currentUserId
     const members = Array.from(new Set([me, ...(memberIds || [])]))
-    const finalCurrency = currency || get().settings.currency
     const finalName = name.trim() || 'New group'
     set((s) => ({
       groups: {
@@ -120,7 +121,7 @@ export const useStore = create((set, get) => ({
           id,
           name: finalName,
           emoji,
-          currency: finalCurrency,
+          currency: 'INR',
           memberIds: members,
           simplify,
           archived: false,
@@ -129,7 +130,7 @@ export const useStore = create((set, get) => ({
       },
     }))
     api
-      .createGroup({ id, name: finalName, emoji, currency: finalCurrency, memberIds: members, simplify })
+      .createGroup({ id, name: finalName, emoji, memberIds: members, simplify })
       .then((g) => set((s) => ({ groups: { ...s.groups, [id]: { ...s.groups[id], ...g, id } } })))
       .catch(reportSyncError)
     return id
@@ -227,17 +228,7 @@ export const useStore = create((set, get) => ({
     api.deleteSettlement(id).catch(reportSyncError)
   },
 
-  // ---- settings + data -------------------------------------
-  setSettings(patch) {
-    set((s) => ({ settings: { ...s.settings, ...patch } }))
-    api.patchSettings(patch).catch(reportSyncError)
-  },
-  resetAll() {
-    api
-      .resetAccount()
-      .then(() => get().loadState())
-      .catch(reportSyncError)
-  },
+  // ---- data ---------------------------------------------------------
   exportData() {
     const { people, groups, expenses, settlements, settings, currentUserId } = get()
     return JSON.stringify({ v: 1, currentUserId, people, groups, expenses, settlements, settings }, null, 2)
@@ -248,12 +239,6 @@ export const useStore = create((set, get) => ({
     // fabricate entries in groups other people rely on. Export still works
     // as a personal read-only backup.
     return { ok: false, reason: 'Import is unavailable now that Hisheb syncs to your account - add data with the forms instead.' }
-  },
-  loadSample() {
-    api
-      .loadSampleData()
-      .then(() => get().loadState())
-      .catch(reportSyncError)
   },
 }))
 
@@ -301,7 +286,7 @@ function normaliseExpense(e) {
     groupId: e.groupId || null,
     description: (e.description || '').trim() || 'Expense',
     amount: total,
-    currency: e.currency || 'USD',
+    currency: e.currency || 'INR',
     category: e.category || 'general',
     date: e.date || now(),
     paidBy,

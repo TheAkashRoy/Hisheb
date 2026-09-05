@@ -54,7 +54,7 @@ export default function ExpenseForm() {
   const [notes, setNotes] = useState(existing?.notes || '')
 
   const amountCents = toCents(amountStr)
-  const currency = group?.currency || 'USD'
+  const currency = group?.currency || 'INR'
 
   const preview = useMemo(() => {
     if (mode === 'equal') return splitEqual(amountCents, participants)

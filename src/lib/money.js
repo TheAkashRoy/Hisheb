@@ -19,7 +19,7 @@ export function currencySymbol(code) {
   return SYMBOLS[code] || code + ' '
 }
 
-export function formatMoney(cents, currency = 'USD', { sign = false } = {}) {
+export function formatMoney(cents, currency = 'INR', { sign = false } = {}) {
   const neg = cents < 0
   const abs = Math.abs(cents || 0)
   const body = currencySymbol(currency) + (abs / 100).toLocaleString(undefined, {

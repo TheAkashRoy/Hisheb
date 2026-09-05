@@ -27,7 +27,7 @@ async function handler(req, res) {
 
     const name = String(body.name || '').trim() || 'New group'
     const emoji = body.emoji || '👥'
-    const currency = body.currency || user?.settings?.currency || 'USD'
+    const currency = 'INR' // the only currency the app supports - not client-settable
     const simplify = body.simplify !== false
     const requested = Array.isArray(body.memberIds) ? body.memberIds : []
 
@@ -73,7 +73,7 @@ async function handler(req, res) {
     const patch = {}
     if (typeof body.name === 'string') patch.name = body.name.trim() || group.name
     if (typeof body.emoji === 'string') patch.emoji = body.emoji
-    if (typeof body.currency === 'string') patch.currency = body.currency
+    // currency is intentionally not patchable - INR is the only supported currency
     if (typeof body.simplify === 'boolean') patch.simplify = body.simplify
     if (typeof body.archived === 'boolean') patch.archived = body.archived
 

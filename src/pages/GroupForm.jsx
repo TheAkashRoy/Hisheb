@@ -6,7 +6,6 @@ import TopBar from '../components/TopBar.jsx'
 import Avatar from '../components/Avatar.jsx'
 
 const EMOJIS = ['👥', '✈️', '🏠', '🍽️', '🏝️', '🎉', '⛰️', '🚗', '🛒', '💼', '❤️', '🎓']
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'BDT', 'JPY', 'AUD', 'CAD', 'SGD', 'AED', 'CNY', 'BRL']
 
 export default function GroupForm() {
   const { id } = useParams()
@@ -16,7 +15,6 @@ export default function GroupForm() {
   const existing = useStore((s) => (id ? s.groups[id] : null))
   const people = useStore((s) => s.people)
   const currentUserId = useStore((s) => s.currentUserId)
-  const defaultCurrency = useStore((s) => s.settings.currency)
   const addGroup = useStore((s) => s.addGroup)
   const updateGroup = useStore((s) => s.updateGroup)
   const deleteGroup = useStore((s) => s.deleteGroup)
@@ -24,7 +22,6 @@ export default function GroupForm() {
 
   const [name, setName] = useState(existing?.name || '')
   const [emoji, setEmoji] = useState(existing?.emoji || '👥')
-  const [currency, setCurrency] = useState(existing?.currency || defaultCurrency)
   const [simplify, setSimplify] = useState(existing?.simplify ?? true)
   const [memberIds, setMemberIds] = useState(existing?.memberIds || [currentUserId])
   const [newName, setNewName] = useState('')
@@ -48,11 +45,11 @@ export default function GroupForm() {
   const save = () => {
     if (!name.trim()) return toast('Give the group a name')
     if (id) {
-      updateGroup(id, { name, emoji, currency, simplify, memberIds })
+      updateGroup(id, { name, emoji, simplify, memberIds })
       toast('Group updated')
       nav(`/groups/${id}`)
     } else {
-      const gid = addGroup({ name, emoji, currency, simplify, memberIds })
+      const gid = addGroup({ name, emoji, simplify, memberIds })
       nav(`/groups/${gid}`, { replace: true })
     }
   }
@@ -97,17 +94,6 @@ export default function GroupForm() {
             placeholder="e.g. Lisbon trip"
             autoFocus={!id}
           />
-        </div>
-
-        <div className="field">
-          <label>Currency</label>
-          <select className="select" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-            {CURRENCIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
         </div>
 
         <div className="field">

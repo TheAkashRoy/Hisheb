@@ -4,20 +4,14 @@ import { useToast } from '../components/Toast.jsx'
 import TopBar from '../components/TopBar.jsx'
 import Avatar from '../components/Avatar.jsx'
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'BDT', 'JPY', 'AUD', 'CAD', 'SGD', 'AED', 'CNY', 'BRL']
-
 export default function Account() {
   const toast = useToast()
   const me = useStore((s) => s.currentUserId)
   const myName = useStore((s) => s.people[s.currentUserId]?.name || 'You')
   const email = useStore((s) => s.user?.email)
-  const settings = useStore((s) => s.settings)
   const updatePerson = useStore((s) => s.updatePerson)
-  const setSettings = useStore((s) => s.setSettings)
   const exportData = useStore((s) => s.exportData)
   const importData = useStore((s) => s.importData)
-  const resetAll = useStore((s) => s.resetAll)
-  const loadSample = useStore((s) => s.loadSample)
   const logout = useStore((s) => s.logout)
 
   const [name, setName] = useState(myName)
@@ -89,23 +83,6 @@ export default function Account() {
           </button>
         </div>
 
-        <div className="section-title">Default currency</div>
-        <select
-          className="select"
-          value={settings.currency}
-          onChange={(e) => {
-            setSettings({ currency: e.target.value })
-            toast('Default currency updated')
-          }}
-        >
-          {CURRENCIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <div className="hint">Used for new groups. Each group keeps its own currency.</div>
-
         <div className="section-title">App</div>
         <div className="card list">
           <button className="row" onClick={install}>
@@ -132,30 +109,6 @@ export default function Account() {
             <div className="grow">
               <div className="title">Restore backup</div>
               <div className="sub">Not available while synced to your account</div>
-            </div>
-          </button>
-          <button className="row" onClick={loadSample}>
-            <div className="emoji-badge">✨</div>
-            <div className="grow">
-              <div className="title">Load sample data</div>
-              <div className="sub">Adds an example trip group</div>
-            </div>
-          </button>
-          <button
-            className="row"
-            onClick={() => {
-              if (confirm('Leave every group and delete the ones only you are in? This cannot be undone.')) {
-                resetAll()
-                toast('Cleared')
-              }
-            }}
-          >
-            <div className="emoji-badge">🗑️</div>
-            <div className="grow">
-              <div className="title" style={{ color: 'var(--danger)' }}>
-                Erase everything
-              </div>
-              <div className="sub">Leaves shared groups for everyone else</div>
             </div>
           </button>
         </div>

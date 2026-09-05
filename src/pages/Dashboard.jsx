@@ -10,7 +10,6 @@ export default function Dashboard() {
   const nav = useNavigate()
   const groups = useStore(selectGroups)
   const people = useStore((s) => s.people)
-  const loadSample = useStore((s) => s.loadSample)
   const overall = useOverall()
 
   const currencies = Object.keys(overall).filter((c) => overall[c] !== 0)
@@ -49,9 +48,6 @@ export default function Dashboard() {
             <div style={{ padding: 16, display: 'grid', gap: 10 }}>
               <button className="btn primary block" onClick={() => nav('/groups/new')}>
                 Create a group
-              </button>
-              <button className="btn subtle block" onClick={loadSample}>
-                Load sample data
               </button>
             </div>
           </div>

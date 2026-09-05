@@ -61,7 +61,7 @@ async function signup(req, res) {
     passwordHash,
     name,
     selfPersonId,
-    settings: { currency: 'USD' },
+    settings: { currency: 'INR' },
     createdAt: new Date().toISOString(),
   }
   await users.insertOne(user)
