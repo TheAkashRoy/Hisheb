@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "description": "Hisheb - split shared expenses fairly. An offline-first Splitwise-style PWA.",
   "scripts": {
     "dev": "vite",
