@@ -1,6 +1,9 @@
+// One function serving both POST /api/people (create) and PATCH/DELETE
+// /api/people/:id - merged to stay under the Hobby plan's function limit.
 import { collections } from '../_db.js'
 import { send, methodGuard, readBody, isValidId } from '../_http.js'
 import { withAuth } from '../_auth.js'
+import { findOrCreatePersonByEmail } from '../_people.js'
 
 async function canAccessPerson(person, uid, groups) {
   if (person.createdBy === uid || person.userId === uid) return true
@@ -9,9 +12,36 @@ async function canAccessPerson(person, uid, groups) {
 }
 
 async function handler(req, res) {
+  const idParts = req.query.id
+  const id = Array.isArray(idParts) ? idParts[0] : idParts
   const { people, groups, expenses, settlements, users } = await collections()
   const { uid } = req.session
-  const id = req.query.id
+
+  if (!id) {
+    if (!methodGuard(req, res, ['POST'])) return
+    const body = await readBody(req)
+    const name = String(body.name || '').trim() || 'Someone'
+    const inviteEmail = body.inviteEmail ? String(body.inviteEmail).trim().toLowerCase() : null
+
+    if (inviteEmail) {
+      // Identity is anchored by email - reuse whatever record already
+      // claims it instead of creating a duplicate placeholder.
+      const person = await findOrCreatePersonByEmail({ people, users }, { email: inviteEmail, name, createdBy: uid })
+      return send(res, 200, { id: person._id, name: person.name, userId: person.userId, inviteEmail: person.inviteEmail })
+    }
+
+    const newId = isValidId(body.id) ? body.id : undefined
+    if (!newId) return send(res, 400, { error: 'Missing or invalid id.' })
+    const doc = { _id: newId, name, userId: null, inviteEmail: null, createdBy: uid, createdAt: new Date().toISOString() }
+    try {
+      await people.insertOne(doc)
+    } catch (err) {
+      if (err.code === 11000) return send(res, 409, { error: 'That person already exists.' })
+      throw err
+    }
+    return send(res, 200, { id: newId, name, userId: null, inviteEmail: null })
+  }
+
   const person = await people.findOne({ _id: id })
   if (!person) return send(res, 404, { error: 'Person not found' })
   if (!(await canAccessPerson(person, uid, groups))) return send(res, 403, { error: 'Not allowed' })

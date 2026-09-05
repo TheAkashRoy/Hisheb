@@ -9,9 +9,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const apiRoot = path.join(__dirname, 'api')
 
 // Walk api/ into Vercel-style routes:
-//   api/state.js        -> ['state']
-//   api/auth/login.js   -> ['auth', 'login']
-//   api/groups/[id].js  -> ['groups', '[id]']   (dynamic segment)
+//   api/state.js              -> ['state']
+//   api/auth/[action].js      -> ['auth', '[action]']         (single dynamic segment)
+//   api/people/[[...id]].js   -> ['people', '[[...id]]']      (optional catch-all - matches
+//                                                               /api/people AND /api/people/xyz)
 // Files/folders starting with "_" are helpers, not routes (matches Vercel).
 function walk(dir, base = []) {
   let out = []
@@ -22,6 +23,38 @@ function walk(dir, base = []) {
     else if (entry.name.endsWith('.js')) out.push({ file: full, segments: [...base, entry.name.slice(0, -3)] })
   }
   return out
+}
+
+// Matches one route's segments against the request's segments. Returns a
+// params object (possibly empty) on match, or null. Handles plain segments,
+// single dynamic segments ([name]), and a trailing optional catch-all
+// ([[...name]], which must be the route's last segment and absorbs zero or
+// more remaining request segments into an array - mirrors Vercel's routing).
+function matchRoute(routeSegments, reqSegments) {
+  const last = routeSegments[routeSegments.length - 1] || ''
+  const catchAll = last.match(/^\[\[\.\.\.(.+)\]\]$/)
+
+  if (catchAll) {
+    const prefix = routeSegments.slice(0, -1)
+    if (reqSegments.length < prefix.length) return null
+    const params = {}
+    for (let i = 0; i < prefix.length; i++) {
+      const seg = prefix[i]
+      if (seg.startsWith('[') && seg.endsWith(']')) params[seg.slice(1, -1)] = reqSegments[i]
+      else if (seg !== reqSegments[i]) return null
+    }
+    params[catchAll[1]] = reqSegments.slice(prefix.length)
+    return params
+  }
+
+  if (routeSegments.length !== reqSegments.length) return null
+  const params = {}
+  for (let i = 0; i < routeSegments.length; i++) {
+    const seg = routeSegments[i]
+    if (seg.startsWith('[') && seg.endsWith(']')) params[seg.slice(1, -1)] = reqSegments[i]
+    else if (seg !== reqSegments[i]) return null
+  }
+  return params
 }
 
 // Mounts the Vercel-style /api/**.js serverless functions inside the Vite
@@ -43,18 +76,8 @@ function apiDevPlugin() {
         const reqSegments = urlPath.slice(1).split('/').filter(Boolean).slice(1) // drop leading "api"
 
         for (const r of routes) {
-          if (r.segments.length !== reqSegments.length) continue
-          const params = {}
-          let ok = true
-          for (let i = 0; i < r.segments.length; i++) {
-            const seg = r.segments[i]
-            if (seg.startsWith('[') && seg.endsWith(']')) params[seg.slice(1, -1)] = reqSegments[i]
-            else if (seg !== reqSegments[i]) {
-              ok = false
-              break
-            }
-          }
-          if (!ok) continue
+          const params = matchRoute(r.segments, reqSegments)
+          if (!params) continue
 
           const query = Object.fromEntries(new URLSearchParams(req.url.split('?')[1] || ''))
           req.query = { ...query, ...params } // matches how Vercel merges route params into req.query
