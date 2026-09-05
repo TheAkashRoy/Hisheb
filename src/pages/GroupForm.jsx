@@ -18,13 +18,14 @@ export default function GroupForm() {
   const addGroup = useStore((s) => s.addGroup)
   const updateGroup = useStore((s) => s.updateGroup)
   const deleteGroup = useStore((s) => s.deleteGroup)
-  const addPerson = useStore((s) => s.addPerson)
+  const addPersonAsync = useStore((s) => s.addPersonAsync)
 
   const [name, setName] = useState(existing?.name || '')
   const [emoji, setEmoji] = useState(existing?.emoji || '👥')
   const [simplify, setSimplify] = useState(existing?.simplify ?? true)
   const [memberIds, setMemberIds] = useState(existing?.memberIds || [currentUserId])
   const [newName, setNewName] = useState('')
+  const [newEmail, setNewEmail] = useState('')
 
   const otherPeople = useMemo(
     () => Object.values(people).filter((p) => p.id !== currentUserId),
@@ -34,12 +35,20 @@ export default function GroupForm() {
   const toggleMember = (pid) =>
     setMemberIds((ids) => (ids.includes(pid) ? ids.filter((x) => x !== pid) : [...ids, pid]))
 
-  const addNewPerson = () => {
+  const addNewPerson = async () => {
     const n = newName.trim()
     if (!n) return
-    const pid = addPerson(n)
-    setMemberIds((ids) => [...ids, pid])
+    const email = newEmail.trim()
     setNewName('')
+    setNewEmail('')
+    // Awaited (not the plain addPerson action) so that when an invited
+    // email matches someone who already has a person/account, we add
+    // *their* real id to the group - not a placeholder id the server
+    // never actually created.
+    const pid = await addPersonAsync(n, email || undefined)
+    if (!pid) return // addPersonAsync already surfaced the error via syncError
+    setMemberIds((ids) => [...ids, pid])
+    if (email) toast('Added — they can claim this by signing up with that email')
   }
 
   const save = () => {
@@ -133,6 +142,15 @@ export default function GroupForm() {
               Add
             </button>
           </div>
+          <input
+            className="input"
+            style={{ marginTop: 8 }}
+            type="email"
+            placeholder="Their email (optional — lets them claim this later)"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addNewPerson()}
+          />
         </div>
 
         <label className="field" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

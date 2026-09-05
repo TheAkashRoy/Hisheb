@@ -67,15 +67,20 @@ export const useStore = create((set, get) => ({
 
   // ---- people -------------------------------------------------------
   // `inviteEmail` is optional: lets the person later sign up and "claim"
-  // this spot instead of staying a plain name-only label forever.
+  // this spot instead of staying a plain name-only label forever. Returns
+  // a locally-generated id *immediately* (optimistic UI) - if the invited
+  // email turns out to already belong to an existing person or account,
+  // the server uses THAT id instead, and the local `people` map gets
+  // re-keyed once the response comes back. Fine for callers that don't
+  // need the id again right away (e.g. just showing it in a list); for
+  // anything that immediately uses the id for something else, use
+  // addPersonAsync instead so it can't end up referencing a phantom id.
   addPerson(name, inviteEmail) {
     const id = uid()
     set((s) => ({ people: { ...s.people, [id]: { id, name: name.trim() || 'Someone' } } }))
     api
       .createPerson({ id, name, inviteEmail })
       .then((p) => {
-        // If the server matched an existing person by email, it may have
-        // returned a different canonical id - re-key the local entry.
         set((s) => {
           const people = { ...s.people }
           delete people[id]
@@ -85,6 +90,33 @@ export const useStore = create((set, get) => ({
       })
       .catch(reportSyncError)
     return id
+  },
+  // Same as addPerson, but resolves to the server's *final* id once it's
+  // known - use this whenever the id is used again immediately (e.g.
+  // adding it straight into a group's memberIds), so an invite that
+  // resolves to someone's existing account never ends up wired to a
+  // never-actually-created placeholder id.
+  async addPersonAsync(name, inviteEmail) {
+    const id = uid()
+    set((s) => ({ people: { ...s.people, [id]: { id, name: name.trim() || 'Someone' } } }))
+    try {
+      const p = await api.createPerson({ id, name, inviteEmail })
+      set((s) => {
+        const people = { ...s.people }
+        delete people[id]
+        people[p.id] = { id: p.id, name: p.name, me: false }
+        return { people }
+      })
+      return p.id
+    } catch (err) {
+      reportSyncError(err)
+      set((s) => {
+        const people = { ...s.people }
+        delete people[id]
+        return { people }
+      })
+      return null
+    }
   },
   updatePerson(id, patch) {
     set((s) => ({ people: { ...s.people, [id]: { ...s.people[id], ...patch } } }))
