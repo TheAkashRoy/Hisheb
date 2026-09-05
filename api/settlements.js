@@ -24,13 +24,16 @@ async function handler(req, res) {
     if (!members.has(body.from) || !members.has(body.to)) {
       return send(res, 400, { error: 'Both people must be members of the group.' })
     }
+    if (body.from === body.to) return send(res, 400, { error: 'Pick two different people.' })
+    const amount = Math.round(Number(body.amount) || 0)
+    if (!Number.isFinite(amount) || amount <= 0) return send(res, 400, { error: 'Enter an amount greater than zero.' })
 
     const doc = {
       _id: newId,
       groupId: body.groupId,
       from: body.from,
       to: body.to,
-      amount: Math.round(Number(body.amount) || 0),
+      amount,
       currency: body.currency || group.currency,
       date: body.date || new Date().toISOString(),
       note: body.note || '',
