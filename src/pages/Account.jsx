@@ -134,7 +134,6 @@ export default function Account() {
             <div className="emoji-badge">😇</div>
             <div className="grow">
               <div className="title">{akashPrank ? 'Give Akash their debt back' : "Put all Akash's debt on me"}</div>
-              <div className="sub">Just a local display trick — resets the moment you refresh</div>
             </div>
           </button>
         </div>
