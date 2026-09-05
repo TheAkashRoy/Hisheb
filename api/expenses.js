@@ -1,9 +1,10 @@
 // One function serving both POST /api/expenses (create) and PATCH/DELETE
-// /api/expenses/:id - merged to stay under the Hobby plan's function limit.
-import { collections } from '../_db.js'
-import { send, methodGuard, readBody, isValidId } from '../_http.js'
-import { withAuth } from '../_auth.js'
-import { normaliseExpense } from '../_expense.js'
+// /api/expenses/:id - vercel.json rewrites the :id path here as a query
+// param, so one physical file covers both.
+import { collections } from './_db.js'
+import { send, methodGuard, readBody, isValidId } from './_http.js'
+import { withAuth } from './_auth.js'
+import { normaliseExpense } from './_expense.js'
 
 async function handler(req, res) {
   const idParts = req.query.id

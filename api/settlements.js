@@ -1,8 +1,9 @@
 // One function serving both POST /api/settlements (create) and DELETE
-// /api/settlements/:id - merged to stay under the Hobby plan's function limit.
-import { collections } from '../_db.js'
-import { send, methodGuard, readBody, isValidId } from '../_http.js'
-import { withAuth } from '../_auth.js'
+// /api/settlements/:id - vercel.json rewrites the :id path here as a query
+// param, so one physical file covers both.
+import { collections } from './_db.js'
+import { send, methodGuard, readBody, isValidId } from './_http.js'
+import { withAuth } from './_auth.js'
 
 async function handler(req, res) {
   const idParts = req.query.id

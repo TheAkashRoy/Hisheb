@@ -1,9 +1,12 @@
 // One function serving both POST /api/people (create) and PATCH/DELETE
-// /api/people/:id - merged to stay under the Hobby plan's function limit.
-import { collections } from '../_db.js'
-import { send, methodGuard, readBody, isValidId } from '../_http.js'
-import { withAuth } from '../_auth.js'
-import { findOrCreatePersonByEmail } from '../_people.js'
+// /api/people/:id - vercel.json rewrites the :id path here as a query
+// param, so one physical file covers both (keeps the function count under
+// the Hobby plan's limit; plain [[...id]] catch-all files aren't
+// recognized outside a Next.js app, which is what this replaced).
+import { collections } from './_db.js'
+import { send, methodGuard, readBody, isValidId } from './_http.js'
+import { withAuth } from './_auth.js'
+import { findOrCreatePersonByEmail } from './_people.js'
 
 async function canAccessPerson(person, uid, groups) {
   if (person.createdBy === uid || person.userId === uid) return true

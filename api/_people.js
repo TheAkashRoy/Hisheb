@@ -1,15 +1,16 @@
 import { randomUUID } from 'node:crypto'
 
-// Person ids the requester is allowed to reference: people they created
-// themselves, plus anyone in a group they already share.
-export async function visiblePersonIds(uid, people, groups) {
-  const [own, shared] = await Promise.all([
-    people.find({ createdBy: uid }).project({ _id: 1 }).toArray(),
-    groups.find({ memberUserIds: uid }).project({ memberIds: 1 }).toArray(),
-  ])
-  const ids = new Set(own.map((p) => p._id))
-  for (const g of shared) for (const pid of g.memberIds) ids.add(pid)
-  return ids
+// Which of these candidate person ids actually exist. Person ids are
+// unguessable 128-bit UUIDs, so "does it exist" is enough to safely accept
+// it as a group member - the real access boundary is at the group/expense
+// level (memberUserIds), not at "have I already interacted with this
+// person id before" (that check used to create a chicken-and-egg problem:
+// you can't add someone you just invited by email to a group, because you
+// don't share a group with them yet - that's the whole point of adding them).
+export async function existingPersonIds(candidateIds, people) {
+  if (!candidateIds.length) return new Set()
+  const docs = await people.find({ _id: { $in: candidateIds } }).project({ _id: 1 }).toArray()
+  return new Set(docs.map((p) => p._id))
 }
 
 // Denormalized real-user ids backing a list of person ids - lets group

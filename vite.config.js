@@ -1,94 +1,96 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const apiRoot = path.join(__dirname, 'api')
 
-// Walk api/ into Vercel-style routes:
-//   api/state.js              -> ['state']
-//   api/auth/[action].js      -> ['auth', '[action]']         (single dynamic segment)
-//   api/people/[[...id]].js   -> ['people', '[[...id]]']      (optional catch-all - matches
-//                                                               /api/people AND /api/people/xyz)
-// Files/folders starting with "_" are helpers, not routes (matches Vercel).
-function walk(dir, base = []) {
-  let out = []
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name.startsWith('_')) continue
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) out = out.concat(walk(full, [...base, entry.name]))
-    else if (entry.name.endsWith('.js')) out.push({ file: full, segments: [...base, entry.name.slice(0, -3)] })
-  }
-  return out
+// Flat api/*.js files only (no bracket-folder routing - Vercel's plain
+// Functions builder doesn't support Next.js-style [[...catchAll]] outside
+// a Next.js app, so multi-route resources are handled via vercel.json
+// rewrites instead; see that file). Files prefixed with "_" are helpers.
+function listApiFiles(dir) {
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith('.js') && !e.name.startsWith('_'))
+    .map((e) => ({ file: path.join(dir, e.name), name: e.name.slice(0, -3) }))
 }
 
-// Matches one route's segments against the request's segments. Returns a
-// params object (possibly empty) on match, or null. Handles plain segments,
-// single dynamic segments ([name]), and a trailing optional catch-all
-// ([[...name]], which must be the route's last segment and absorbs zero or
-// more remaining request segments into an array - mirrors Vercel's routing).
-function matchRoute(routeSegments, reqSegments) {
-  const last = routeSegments[routeSegments.length - 1] || ''
-  const catchAll = last.match(/^\[\[\.\.\.(.+)\]\]$/)
+// Compiles one vercel.json rewrite rule (`/api/groups/:id` ->
+// `/api/groups?id=:id`) into a matcher: given a request path, returns the
+// rewritten { path, query } or null if this rule doesn't match.
+function compileRewrite({ source, destination }) {
+  const paramNames = []
+  const pattern = source
+    .split('/')
+    .filter(Boolean)
+    .map((seg) => {
+      if (seg.startsWith(':')) {
+        paramNames.push(seg.slice(1))
+        return '([^/]+)'
+      }
+      return seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    })
+    .join('/')
+  const re = new RegExp(`^/${pattern}$`)
+  const [destPath, destQuery = ''] = destination.split('?')
 
-  if (catchAll) {
-    const prefix = routeSegments.slice(0, -1)
-    if (reqSegments.length < prefix.length) return null
-    const params = {}
-    for (let i = 0; i < prefix.length; i++) {
-      const seg = prefix[i]
-      if (seg.startsWith('[') && seg.endsWith(']')) params[seg.slice(1, -1)] = reqSegments[i]
-      else if (seg !== reqSegments[i]) return null
-    }
-    params[catchAll[1]] = reqSegments.slice(prefix.length)
-    return params
+  return (reqPath) => {
+    const m = re.exec(reqPath)
+    if (!m) return null
+    const params = Object.fromEntries(paramNames.map((name, i) => [name, m[i + 1]]))
+    const substitute = (s) => s.replace(/:([A-Za-z0-9_]+)/g, (_, name) => params[name] ?? '')
+    const query = Object.fromEntries(
+      destQuery
+        .split('&')
+        .filter(Boolean)
+        .map((pair) => pair.split('=').map(substitute)),
+    )
+    return { path: substitute(destPath), query }
   }
-
-  if (routeSegments.length !== reqSegments.length) return null
-  const params = {}
-  for (let i = 0; i < routeSegments.length; i++) {
-    const seg = routeSegments[i]
-    if (seg.startsWith('[') && seg.endsWith(']')) params[seg.slice(1, -1)] = reqSegments[i]
-    else if (seg !== reqSegments[i]) return null
-  }
-  return params
 }
 
-// Mounts the Vercel-style /api/**.js serverless functions inside the Vite
-// dev server, so `npm run dev` alone is enough locally (no `vercel dev`
-// needed). On Vercel itself, each file under /api becomes its own function
-// using the same file-based routing convention - this is dev-only glue.
+// Mounts the api/*.js serverless functions (plus vercel.json's rewrites)
+// inside the Vite dev server, so `npm run dev` alone is enough locally -
+// no `vercel dev` needed, and routing matches production exactly since
+// both read the same vercel.json.
 function apiDevPlugin() {
   return {
     name: 'hisheb-api-dev',
     async configureServer(server) {
-      const routes = []
-      for (const { file, segments } of walk(apiRoot)) {
-        const mod = await import(pathToFileURL(file).href)
-        routes.push({ segments, handler: mod.default })
+      const handlers = {}
+      for (const { file, name } of listApiFiles(apiRoot)) {
+        handlers[name] = (await import(pathToFileURL(file).href)).default
       }
+      const vercelJson = JSON.parse(readFileSync(path.join(__dirname, 'vercel.json'), 'utf8'))
+      const rewrites = (vercelJson.rewrites || []).map(compileRewrite)
+
       server.middlewares.use((req, res, next) => {
-        const urlPath = req.url.split('?')[0]
+        let urlPath = req.url.split('?')[0]
         if (!urlPath.startsWith('/api/')) return next()
-        const reqSegments = urlPath.slice(1).split('/').filter(Boolean).slice(1) // drop leading "api"
+        let query = Object.fromEntries(new URLSearchParams(req.url.split('?')[1] || ''))
 
-        for (const r of routes) {
-          const params = matchRoute(r.segments, reqSegments)
-          if (!params) continue
-
-          const query = Object.fromEntries(new URLSearchParams(req.url.split('?')[1] || ''))
-          req.query = { ...query, ...params } // matches how Vercel merges route params into req.query
-          r.handler(req, res).catch((err) => {
-            console.error('[hisheb] api error', urlPath, err)
-            if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify({ error: 'Server error' }))
-          })
-          return
+        for (const rewrite of rewrites) {
+          const hit = rewrite(urlPath)
+          if (hit) {
+            urlPath = hit.path
+            query = { ...query, ...hit.query }
+            break
+          }
         }
-        next()
+
+        const name = urlPath.slice('/api/'.length)
+        const handler = handlers[name]
+        if (!handler) return next()
+
+        req.query = query
+        handler(req, res).catch((err) => {
+          console.error('[hisheb] api error', urlPath, err)
+          if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: 'Server error' }))
+        })
       })
     },
   }

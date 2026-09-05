@@ -1,9 +1,10 @@
-// One function serving /api/auth/signup, /login, /logout, /me - merged to
-// stay under the Hobby plan's 12-functions-per-deployment limit. Same URLs,
-// same behavior as separate files would have had.
-import { collections } from '../_db.js'
-import { readBody, send, methodGuard } from '../_http.js'
-import { hashPassword, verifyPassword, signSession, setSessionCookie, clearSessionCookie, getSession } from '../_auth.js'
+// One function serving /api/auth/signup, /login, /logout, /me -
+// vercel.json rewrites /api/auth/:action here as a query param, so one
+// physical file covers all four (keeps the function count under the
+// Hobby plan's limit).
+import { collections } from './_db.js'
+import { readBody, send, methodGuard } from './_http.js'
+import { hashPassword, verifyPassword, signSession, setSessionCookie, clearSessionCookie, getSession } from './_auth.js'
 import { randomUUID } from 'node:crypto'
 
 export default async function handler(req, res) {

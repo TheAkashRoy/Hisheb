@@ -1,9 +1,10 @@
 // One function serving both POST /api/groups (create) and PATCH/DELETE
-// /api/groups/:id - merged to stay under the Hobby plan's function limit.
-import { collections } from '../_db.js'
-import { send, methodGuard, readBody, isValidId } from '../_http.js'
-import { withAuth } from '../_auth.js'
-import { visiblePersonIds, resolveMemberUserIds } from '../_people.js'
+// /api/groups/:id - vercel.json rewrites the :id path here as a query
+// param, so one physical file covers both.
+import { collections } from './_db.js'
+import { send, methodGuard, readBody, isValidId } from './_http.js'
+import { withAuth } from './_auth.js'
+import { existingPersonIds, resolveMemberUserIds } from './_people.js'
 
 function toClient(g) {
   const { _id, memberUserIds, ...rest } = g
@@ -30,8 +31,8 @@ async function handler(req, res) {
     const simplify = body.simplify !== false
     const requested = Array.isArray(body.memberIds) ? body.memberIds : []
 
-    const visible = await visiblePersonIds(uid, people, groups)
-    const memberIds = Array.from(new Set([user.selfPersonId, ...requested.filter((pid) => visible.has(pid))]))
+    const exists = await existingPersonIds(requested, people)
+    const memberIds = Array.from(new Set([user.selfPersonId, ...requested.filter((pid) => exists.has(pid))]))
     const memberUserIds = await resolveMemberUserIds(memberIds, people)
 
     const doc = {
@@ -78,9 +79,9 @@ async function handler(req, res) {
 
     if (Array.isArray(body.memberIds)) {
       const user = await users.findOne({ _id: uid })
-      const visible = await visiblePersonIds(uid, people, groups)
+      const exists = await existingPersonIds(body.memberIds, people)
       const memberIds = Array.from(
-        new Set(body.memberIds.filter((pid) => visible.has(pid) || group.memberIds.includes(pid))),
+        new Set(body.memberIds.filter((pid) => exists.has(pid) || group.memberIds.includes(pid))),
       )
       if (!memberIds.includes(user.selfPersonId)) memberIds.push(user.selfPersonId)
 

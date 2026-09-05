@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/api/auth/:action", "destination": "/api/auth?action=:action" },
+    { "source": "/api/people/:id", "destination": "/api/people?id=:id" },
+    { "source": "/api/groups/:id", "destination": "/api/groups?id=:id" },
+    { "source": "/api/expenses/:id", "destination": "/api/expenses?id=:id" },
+    { "source": "/api/settlements/:id", "destination": "/api/settlements?id=:id" }
+  ]
+}
