@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { splitEqual } from './lib/money.js'
+import { splitNameOrEmail } from './lib/email.js'
 import * as api from './lib/api.js'
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2))
@@ -75,9 +76,10 @@ export const useStore = create((set, get) => ({
   // need the id again right away (e.g. just showing it in a list); for
   // anything that immediately uses the id for something else, use
   // addPersonAsync instead so it can't end up referencing a phantom id.
-  addPerson(name, inviteEmail) {
+  addPerson(rawName, rawEmail) {
+    const { name, inviteEmail } = splitNameOrEmail(rawName, rawEmail)
     const id = uid()
-    set((s) => ({ people: { ...s.people, [id]: { id, name: name.trim() || 'Someone' } } }))
+    set((s) => ({ people: { ...s.people, [id]: { id, name: name || 'Someone' } } }))
     api
       .createPerson({ id, name, inviteEmail })
       .then((p) => {
@@ -96,9 +98,10 @@ export const useStore = create((set, get) => ({
   // adding it straight into a group's memberIds), so an invite that
   // resolves to someone's existing account never ends up wired to a
   // never-actually-created placeholder id.
-  async addPersonAsync(name, inviteEmail) {
+  async addPersonAsync(rawName, rawEmail) {
+    const { name, inviteEmail } = splitNameOrEmail(rawName, rawEmail)
     const id = uid()
-    set((s) => ({ people: { ...s.people, [id]: { id, name: name.trim() || 'Someone' } } }))
+    set((s) => ({ people: { ...s.people, [id]: { id, name: name || 'Someone' } } }))
     try {
       const p = await api.createPerson({ id, name, inviteEmail })
       set((s) => {

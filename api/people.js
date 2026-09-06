@@ -7,6 +7,7 @@ import { collections } from './_db.js'
 import { send, methodGuard, readBody, isValidId } from './_http.js'
 import { withAuth } from './_auth.js'
 import { findOrCreatePersonByEmail } from './_people.js'
+import { splitNameOrEmail } from '../src/lib/email.js'
 
 async function canAccessPerson(person, uid, groups) {
   if (person.createdBy === uid || person.userId === uid) return true
@@ -23,8 +24,11 @@ async function handler(req, res) {
   if (!id) {
     if (!methodGuard(req, res, ['POST'])) return
     const body = await readBody(req)
-    const name = String(body.name || '').trim() || 'Someone'
-    const inviteEmail = body.inviteEmail ? String(body.inviteEmail).trim().toLowerCase() : null
+    // Tolerate an email typed into the "name" field (very common) - treat
+    // it as an invite so the person still gets linked to their account.
+    const parsed = splitNameOrEmail(body.name, body.inviteEmail)
+    const name = parsed.name || 'Someone'
+    const inviteEmail = parsed.inviteEmail ? parsed.inviteEmail.toLowerCase() : null
 
     if (inviteEmail) {
       // Identity is anchored by email - reuse whatever record already
