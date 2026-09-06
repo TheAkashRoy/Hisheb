@@ -26,6 +26,10 @@ export async function collections() {
     groups: db.collection('groups'),
     expenses: db.collection('expenses'),
     settlements: db.collection('settlements'),
+    // Append-only audit trail - entries are never edited or removed, even
+    // when the expense/settlement/group they describe is deleted. See
+    // api/_ledger.js and api/ledger.js.
+    ledger: db.collection('ledger'),
   }
   if (!indexesReady) {
     indexesReady = true
@@ -39,6 +43,7 @@ export async function collections() {
       cols.groups.createIndex({ memberUserIds: 1 }).catch(() => {}),
       cols.expenses.createIndex({ groupId: 1 }).catch(() => {}),
       cols.settlements.createIndex({ groupId: 1 }).catch(() => {}),
+      cols.ledger.createIndex({ visibleToUserIds: 1, at: -1 }).catch(() => {}),
     ])
   }
   return cols

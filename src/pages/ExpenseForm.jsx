@@ -6,6 +6,7 @@ import { toCents, fromCents, formatMoney, currencySymbol, splitEqual } from '../
 import { CATEGORIES } from '../lib/categories.js'
 import TopBar from '../components/TopBar.jsx'
 import Avatar from '../components/Avatar.jsx'
+import Sheet from '../components/Sheet.jsx'
 
 const todayLocal = () => {
   const d = new Date()
@@ -52,6 +53,7 @@ export default function ExpenseForm() {
     return o
   })
   const [notes, setNotes] = useState(existing?.notes || '')
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const amountCents = toCents(amountStr)
   const currency = group?.currency || 'INR'
@@ -100,7 +102,6 @@ export default function ExpenseForm() {
   }
 
   const remove = () => {
-    if (!confirm('Delete this expense?')) return
     deleteExpense(id)
     toast('Expense deleted')
     nav(existing?.groupId ? `/groups/${existing.groupId}` : '/', { replace: true })
@@ -280,11 +281,30 @@ export default function ExpenseForm() {
         </div>
 
         {id && (
-          <button className="btn danger block" onClick={remove}>
+          <button className="btn danger block" onClick={() => setConfirmingDelete(true)}>
             Delete expense
           </button>
         )}
       </div>
+
+      {confirmingDelete && (
+        <Sheet title="Delete this expense?" onClose={() => setConfirmingDelete(false)}>
+          <p className="hint" style={{ marginBottom: 14 }}>
+            “{existing?.description || 'This expense'}” · {formatMoney(existing?.amount || 0, currency)} — this
+            can’t be undone.
+          </p>
+          <button className="btn danger block" onClick={remove}>
+            Delete expense
+          </button>
+          <button
+            className="btn subtle block"
+            style={{ marginTop: 10 }}
+            onClick={() => setConfirmingDelete(false)}
+          >
+            Cancel
+          </button>
+        </Sheet>
+      )}
     </div>
   )
 }

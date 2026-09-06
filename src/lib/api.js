@@ -34,6 +34,9 @@ export const me = () => request('/auth/me')
 // ---- state ---------------------------------------------------------------
 export const fetchState = () => request('/state')
 
+// ---- ledger (append-only history) -------------------------------------
+export const fetchLedger = () => request('/ledger')
+
 // ---- people --------------------------------------------------------------
 export const createPerson = (payload) => request('/people', { method: 'POST', body: JSON.stringify(payload) })
 export const patchPerson = (id, patch) => request(`/people/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })

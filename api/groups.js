@@ -5,6 +5,7 @@ import { collections } from './_db.js'
 import { send, methodGuard, readBody, isValidId } from './_http.js'
 import { withAuth } from './_auth.js'
 import { existingPersonIds, resolveMemberUserIds } from './_people.js'
+import { recordLedger } from './_ledger.js'
 
 function toClient(g) {
   const { _id, memberUserIds, ...rest } = g
@@ -53,6 +54,7 @@ async function handler(req, res) {
       if (err.code === 11000) return send(res, 409, { error: 'That group already exists.' })
       throw err
     }
+    await recordLedger({ actorUserId: uid, group: doc, action: 'group.create', detail: `Created the group` })
     const { _id, memberUserIds: _mu, ...rest } = doc
     return send(res, 200, { id: _id, ...rest })
   }
@@ -65,17 +67,26 @@ async function handler(req, res) {
     await groups.deleteOne({ _id: id })
     await expenses.deleteMany({ groupId: id })
     await settlements.deleteMany({ groupId: id })
+    await recordLedger({ actorUserId: uid, group, action: 'group.delete', detail: `Deleted the group and everything in it` })
     return send(res, 200, { ok: true })
   }
 
   if (req.method === 'PATCH') {
     const body = await readBody(req)
     const patch = {}
-    if (typeof body.name === 'string') patch.name = body.name.trim() || group.name
+    const entries = [] // ledger entries to write once the update succeeds
+
+    if (typeof body.name === 'string') {
+      patch.name = body.name.trim() || group.name
+      if (patch.name !== group.name) entries.push({ action: 'group.rename', detail: `Renamed the group to "${patch.name}"` })
+    }
     if (typeof body.emoji === 'string') patch.emoji = body.emoji
     // currency is intentionally not patchable - INR is the only supported currency
     if (typeof body.simplify === 'boolean') patch.simplify = body.simplify
-    if (typeof body.archived === 'boolean') patch.archived = body.archived
+    if (typeof body.archived === 'boolean' && body.archived !== group.archived) {
+      patch.archived = body.archived
+      entries.push({ action: body.archived ? 'group.archive' : 'group.unarchive', detail: body.archived ? 'Archived the group' : 'Un-archived the group' })
+    }
 
     if (Array.isArray(body.memberIds)) {
       const user = await users.findOne({ _id: uid })
@@ -86,6 +97,7 @@ async function handler(req, res) {
       if (!memberIds.includes(user.selfPersonId)) memberIds.push(user.selfPersonId)
 
       const removed = group.memberIds.filter((pid) => !memberIds.includes(pid))
+      const added = memberIds.filter((pid) => !group.memberIds.includes(pid))
       if (removed.length) {
         const stillUsed = await expenses.findOne({
           groupId: id,
@@ -99,10 +111,28 @@ async function handler(req, res) {
       }
       patch.memberIds = memberIds
       patch.memberUserIds = await resolveMemberUserIds(memberIds, people)
+
+      if (added.length || removed.length) {
+        const nameDocs = await people
+          .find({ _id: { $in: [...added, ...removed] } }, { projection: { name: 1 } })
+          .toArray()
+        const nm = (pid) => nameDocs.find((d) => d._id === pid)?.name || 'Someone'
+        if (added.length) entries.push({ action: 'member.add', detail: `Added ${added.map(nm).join(', ')} to the group` })
+        if (removed.length) entries.push({ action: 'member.remove', detail: `Removed ${removed.map(nm).join(', ')} from the group` })
+      }
     }
 
     if (Object.keys(patch).length) await groups.updateOne({ _id: id }, { $set: patch })
     const updated = await groups.findOne({ _id: id })
+
+    // A removed real user should still see "you were removed" in their own
+    // ledger, so the audience is the union of who could see the group
+    // before and after.
+    const audience = Array.from(new Set([...(group.memberUserIds || []), ...(updated.memberUserIds || [])]))
+    for (const e of entries) {
+      await recordLedger({ actorUserId: uid, group: updated, audience, action: e.action, detail: e.detail })
+    }
+
     return send(res, 200, toClient(updated))
   }
 

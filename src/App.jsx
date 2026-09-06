@@ -10,6 +10,7 @@ import GroupDetail from './pages/GroupDetail.jsx'
 import GroupForm from './pages/GroupForm.jsx'
 import ExpenseForm from './pages/ExpenseForm.jsx'
 import SettleUp from './pages/SettleUp.jsx'
+import Ledger from './pages/Ledger.jsx'
 
 export default function App() {
   const authStatus = useStore((s) => s.authStatus)
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/activity" element={<Activity />} />
         <Route path="/people" element={<People />} />
         <Route path="/account" element={<Account />} />
+        <Route path="/ledger" element={<Ledger />} />
         <Route path="/groups/new" element={<GroupForm />} />
         <Route path="/groups/:id" element={<GroupDetail />} />
         <Route path="/groups/:id/edit" element={<GroupForm />} />

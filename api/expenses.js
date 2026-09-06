@@ -5,6 +5,7 @@ import { collections } from './_db.js'
 import { send, methodGuard, readBody, isValidId } from './_http.js'
 import { withAuth } from './_auth.js'
 import { normaliseExpense } from './_expense.js'
+import { recordLedger, money } from './_ledger.js'
 
 async function handler(req, res) {
   const idParts = req.query.id
@@ -35,6 +36,13 @@ async function handler(req, res) {
       if (err.code === 11000) return send(res, 409, { error: 'That expense already exists.' })
       throw err
     }
+    await recordLedger({
+      actorUserId: uid,
+      group,
+      action: 'expense.add',
+      detail: `Added "${doc.description}" · ${money(doc.amount)}`,
+      amount: doc.amount,
+    })
     return send(res, 200, doc)
   }
 
@@ -45,6 +53,13 @@ async function handler(req, res) {
 
   if (req.method === 'DELETE') {
     await expenses.deleteOne({ _id: id })
+    await recordLedger({
+      actorUserId: uid,
+      group,
+      action: 'expense.delete',
+      detail: `Deleted "${existing.description}" · ${money(existing.amount)}`,
+      amount: existing.amount,
+    })
     return send(res, 200, { ok: true })
   }
 
@@ -57,6 +72,13 @@ async function handler(req, res) {
     }
     const { id: _id, ...rest } = merged
     await expenses.updateOne({ _id: id }, { $set: rest })
+    await recordLedger({
+      actorUserId: uid,
+      group,
+      action: 'expense.update',
+      detail: `Edited "${merged.description}" · now ${money(merged.amount)}`,
+      amount: merged.amount,
+    })
     return send(res, 200, merged)
   }
 

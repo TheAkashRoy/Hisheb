@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store.js'
 import { useGroupLedger } from '../hooks.js'
@@ -22,11 +22,22 @@ export default function SettleUp() {
   const me = useStore((s) => s.currentUserId)
   const addSettlement = useStore((s) => s.addSettlement)
 
-  const [from, setFrom] = useState(me)
-  const [to, setTo] = useState('')
-  const [amountStr, setAmountStr] = useState('')
+  // Start the form on your first suggested payment (you clearing your
+  // biggest debt), so the amount field defaults to the full amount owed.
+  const firstSuggestion = led?.transfers?.find((t) => t.from === me) || led?.transfers?.[0]
+  const [from, setFrom] = useState(firstSuggestion?.from || me)
+  const [to, setTo] = useState(firstSuggestion?.to || '')
+  const [amountStr, setAmountStr] = useState(firstSuggestion ? String(fromCents(firstSuggestion.amount)) : '')
   const [date, setDate] = useState(todayLocal())
   const [note, setNote] = useState('')
+
+  // Whenever the from/to pair changes, re-default the amount to the total
+  // that person owes - the user can then trim it down for a partial payment.
+  useEffect(() => {
+    if (!led || !from || !to || from === to) return
+    const t = led.transfers.find((x) => x.from === from && x.to === to)
+    setAmountStr(t ? String(fromCents(t.amount)) : '')
+  }, [from, to, led])
 
   if (!led) {
     return (

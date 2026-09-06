@@ -4,11 +4,17 @@
 import { collections } from './_db.js'
 import { send, methodGuard, readBody, isValidId } from './_http.js'
 import { withAuth } from './_auth.js'
+import { recordLedger, money } from './_ledger.js'
+
+async function namesFor(people, ids) {
+  const docs = await people.find({ _id: { $in: ids } }, { projection: { name: 1 } }).toArray()
+  return (pid) => docs.find((d) => d._id === pid)?.name || 'Someone'
+}
 
 async function handler(req, res) {
   const idParts = req.query.id
   const id = Array.isArray(idParts) ? idParts[0] : idParts
-  const { settlements, groups } = await collections()
+  const { settlements, groups, people } = await collections()
   const { uid } = req.session
 
   if (!id) {
@@ -46,6 +52,14 @@ async function handler(req, res) {
       if (err.code === 11000) return send(res, 409, { error: 'That payment already exists.' })
       throw err
     }
+    const nameOf = await namesFor(people, [doc.from, doc.to])
+    await recordLedger({
+      actorUserId: uid,
+      group,
+      action: 'settlement.add',
+      detail: `${nameOf(doc.from)} paid ${nameOf(doc.to)} · ${money(doc.amount)}`,
+      amount: doc.amount,
+    })
     const { _id, ...rest } = doc
     return send(res, 200, { id: _id, ...rest })
   }
@@ -56,6 +70,14 @@ async function handler(req, res) {
   const group = await groups.findOne({ _id: existing.groupId })
   if (!group || !group.memberUserIds.includes(uid)) return send(res, 403, { error: 'Not allowed' })
   await settlements.deleteOne({ _id: id })
+  const nameOf = await namesFor(people, [existing.from, existing.to])
+  await recordLedger({
+    actorUserId: uid,
+    group,
+    action: 'settlement.delete',
+    detail: `Removed payment: ${nameOf(existing.from)} → ${nameOf(existing.to)} · ${money(existing.amount)}`,
+    amount: existing.amount,
+  })
   send(res, 200, { ok: true })
 }
 

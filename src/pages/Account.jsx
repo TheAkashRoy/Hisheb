@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store.js'
 import { useToast } from '../components/Toast.jsx'
 import TopBar from '../components/TopBar.jsx'
@@ -6,6 +7,7 @@ import Avatar from '../components/Avatar.jsx'
 
 export default function Account() {
   const toast = useToast()
+  const nav = useNavigate()
   const me = useStore((s) => s.currentUserId)
   const myName = useStore((s) => s.people[s.currentUserId]?.name || 'You')
   const email = useStore((s) => s.user?.email)
@@ -88,6 +90,14 @@ export default function Account() {
 
         <div className="section-title">App</div>
         <div className="card list">
+          <button className="row" onClick={() => nav('/ledger')}>
+            <div className="emoji-badge">📜</div>
+            <div className="grow">
+              <div className="title">Ledger</div>
+              <div className="sub">Full history — every add, delete and settle-up, kept permanently</div>
+            </div>
+            <span className="chev">›</span>
+          </button>
           <button className="row" onClick={install}>
             <div className="emoji-badge">📲</div>
             <div className="grow">
